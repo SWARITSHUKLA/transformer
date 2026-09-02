@@ -138,21 +138,36 @@ The text is not semantically reliable, but it captures useful stylistic signals:
 ```text
 .
 ├── transformer.py          # Model, data pipeline, training loop, and generation
+├── requirements.txt        # Python dependency list
 ├── a game of thrones.txt   # Training corpus source
 ├── A Clash of Kings.txt    # Training corpus source
-├── bigram.py               # Earlier bigram baseline
-└── transformers.ipynb      # Notebook experimentation
+└── bigram.py               # Earlier bigram baseline
 ```
 
 ## Run Locally
 
 ### Requirements
 
-- Python 3
-- PyTorch
+- Python 3.9 or later
+- PyTorch (listed in `requirements.txt`)
 - A device supported by PyTorch; the script uses Apple Metal Performance Shaders (`mps`) when available and otherwise falls back to CPU
 
-Install PyTorch using the command appropriate for your platform, then run:
+Create and activate a virtual environment, then install the project dependencies:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+```
+
+On Windows PowerShell, activate the environment with:
+
+```powershell
+.venv\Scripts\Activate.ps1
+```
+
+Then train and generate text:
 
 ```bash
 python transformer.py
