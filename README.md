@@ -1,75 +1,95 @@
 # Character-Level Transformer Language Model
 
-An approximately **11M-parameter decoder-only Transformer**, implemented from scratch in PyTorch and trained to generate *A Song of Ice and Fire*-style text one character at a time.
+> A decoder-only Transformer built from scratch in PyTorch that learns to generate *A Song of Ice and Fire*-style text, one character at a time.
 
-Rather than using a pretrained tokenizer or model, this project learns directly from the raw text of *A Game of Thrones* and *A Clash of Kings*. Given up to 512 preceding characters, it predicts a probability distribution over the next character, then samples from that distribution to continue the passage.
+This project is a compact, educational implementation of a GPT-style language model. It trains directly on the raw text of *A Game of Thrones* and *A Clash of Kings*—no pretrained weights, tokenizers, or high-level Transformer libraries involved.
 
-The result is a compact model that learns the books' surface-level writing patterns: punctuation, spacing, dialogue, character names, sentence rhythm, and recognizably Westerosi vocabulary.
+Given the preceding characters in a passage, the model predicts a distribution for the next one, then samples from it to keep writing. The generated text is not semantically dependable, but it picks up useful signals such as dialogue formatting, paragraph breaks, names, punctuation, and fantasy-style phrasing.
 
-## Highlights
+## What’s Inside
 
-- Built from scratch with PyTorch — no Hugging Face model or pretrained weights
-- Character-level next-token prediction
-- 6-layer causal Transformer with multi-head self-attention
-- ~11M trainable parameters
-- Trained for 5,000 iterations on an Apple M4 MPS 10-core GPU
-- Final validation loss of **1.1959** and validation perplexity of **~3.31**
-- Generates 2,000-character samples with recognizably GoT-ish structure and phrasing
+- **Decoder-only Transformer** with causal (masked) self-attention
+- **Character-level vocabulary** learned from the supplied text files
+- **6 Transformer blocks** with pre-layer normalization and residual connections
+- **~11M trainable parameters**
+- **Autoregressive generation** with multinomial sampling
+- **Apple Silicon support** through PyTorch MPS, with CPU fallback
 
-## Dataset
+## Quick Start
 
-The training corpus is created by concatenating the included plain-text novels:
+### 1. Create an environment
 
-- `a game of thrones.txt`
+```bash
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+```
+
+On Windows PowerShell, activate the environment with:
+
+```powershell
+.venv\Scripts\Activate.ps1
+```
+
+### 2. Train and generate text
+
+```bash
+python transformer.py
+```
+
+The script combines the two novels, trains for 5,000 iterations, prints periodic training and validation losses, and finally generates 2,000 new characters. It uses an MPS device when available; otherwise it runs on CPU.
+
+## How It Works
+
+### Data Pipeline
+
+The training corpus is the concatenation of:
+
 - `A Clash of Kings.txt`
+- `a game of thrones.txt`
 
-Every unique character in the combined corpus becomes a vocabulary item. The model therefore treats letters, whitespace, punctuation, quotation marks, and newlines as individual tokens.
+Each unique character—including whitespace, punctuation, quotation marks, and newlines—becomes a token. The encoded text is split sequentially into 90% training data and 10% validation data.
 
-The encoded corpus is split sequentially into:
+During training, the model receives random 512-character windows. Its target is the same window shifted one character to the right, making this a standard next-character prediction task.
 
-| Split | Portion | Purpose |
-| --- | ---: | --- |
-| Training | 90% | Parameter updates |
-| Validation | 10% | Held-out loss estimation |
-
-## Architecture
-
-This is a GPT-style autoregressive architecture: every position can attend only to itself and earlier positions. A lower-triangular causal mask prevents a character from seeing future characters during training.
+### Model Architecture
 
 ```text
 Input characters
       │
-      ├── Token embeddings (384 dimensions)
-      ├── Learned positional embeddings (up to 512 positions)
+      ├── Token embeddings
+      ├── Learned positional embeddings
       │
       ▼
 6 × Transformer blocks
       ├── Pre-LayerNorm
-      ├── 6-head masked self-attention
+      ├── 6-head causal self-attention
       ├── Residual connection + dropout
       ├── Pre-LayerNorm
-      ├── Feed-forward network (384 → 1536 → 384)
+      ├── Feed-forward network
       └── Residual connection + dropout
       │
       ▼
-Final LayerNorm → Linear vocabulary head → next-character logits
+Final LayerNorm → vocabulary projection → next-character logits
 ```
 
 | Component | Configuration |
 | --- | --- |
-| Model type | Decoder-only causal Transformer |
-| Parameters | ~11M |
+| Architecture | Decoder-only causal Transformer |
 | Transformer blocks | 6 |
 | Attention heads | 6 per block |
 | Embedding dimension | 384 |
-| Head dimension | 64 (`384 / 6`) |
-| Context length | 512 characters |
-| Feed-forward width | 1,536 (4× embedding dimension) |
+| Attention head dimension | 64 |
+| Context window | 512 characters |
+| Feed-forward width | 1,536 |
 | Dropout | 0.2 |
 | Normalization | Pre-LayerNorm |
 | Objective | Cross-entropy next-character prediction |
 
-## Training Configuration
+The causal mask prevents each position from attending to future characters, so the model can only use context that would be available during generation.
+
+### Training Setup
 
 | Setting | Value |
 | --- | ---: |
@@ -78,18 +98,27 @@ Final LayerNorm → Linear vocabulary head → next-character logits
 | Batch size | 64 sequences |
 | Sequence length | 512 characters |
 | Training iterations | 5,000 |
-| Evaluation interval | Every 500 iterations |
+| Evaluation interval | 500 iterations |
 | Evaluation batches | 200 per split |
 | Random seed | 1337 |
-| Accelerator | Apple M4 MPS 10-core GPU |
 
-At each step, the script samples 64 random contiguous 512-character windows from the training split. The input is each window; the target is the same window shifted by one character. AdamW then updates the model using cross-entropy loss.
+## Results
 
-## Training Results
+This run was trained on an Apple M4 MPS 10-core GPU. Training and validation loss decrease steadily and remain close near the end of the run.
 
-![Training results](https://github.com/user-attachments/assets/4d07650d-0af8-449d-b6f5-9af6034bfffc)
+![Training and validation loss](https://github.com/user-attachments/assets/4d07650d-0af8-449d-b6f5-9af6034bfffc)
 
-Loss was evaluated at the beginning of training and every 500 iterations thereafter. Both training and validation loss steadily decreased, with a small final gap between them.
+| Metric | Result |
+| --- | ---: |
+| Final training loss | **1.1451** |
+| Final validation loss | **1.1959** |
+| Validation perplexity | **~3.31** |
+| Generated sample length | **2,000 characters** |
+
+Perplexity is calculated as `exp(validation_loss)`. For a character-level model trained from scratch, this score indicates that the model has narrowed most next-character predictions to a small set of plausible options.
+
+<details>
+<summary>Full loss history</summary>
 
 | Step | Train loss | Validation loss |
 | ---: | ---: | ---: |
@@ -105,20 +134,9 @@ Loss was evaluated at the beginning of training and every 500 iterations thereaf
 | 4,500 | 1.1647 | 1.2128 |
 | 4,999 | **1.1451** | **1.1959** |
 
-| Final metric | Value |
-| --- | ---: |
-| Training loss | **1.1451** |
-| Validation loss | **1.1959** |
-| Validation perplexity | **~3.31** |
-| Generated sample length | **2,000 characters** |
+</details>
 
-Perplexity is calculated as `exp(validation_loss)`. A validation perplexity of about 3.31 means the model's next-character distribution is typically concentrated over a small number of plausible continuations — a strong outcome for a character-level model trained from scratch.
-
-## Sample Generation
-
-After training, generation begins from a zero-valued context token. The model repeatedly predicts and multinomial-samples the next character, keeping only the latest 512 characters as context once the sequence grows beyond the context window.
-
-An excerpt from the 2,000-character output:
+## Example Output
 
 ```text
 Catelyn sns. “Nor is the road, my lord rate. Courage, I know my commanding the
@@ -131,74 +149,31 @@ a look at Casterly, “He got a warch for one is quite of him and he knew he wou
 here.”
 ```
 
-The text is not semantically reliable, but it captures useful stylistic signals: dialogue punctuation, paragraph breaks, proper-name fragments, medieval/fantasy word choices, and the cadence of the source material.
+The model does not understand plot or factual relationships, but it reproduces the visual rhythm of the source material: quoted dialogue, character-name fragments, line breaks, and Westerosi-sounding word patterns.
 
-## Project Structure
+## Project Layout
 
 ```text
 .
-├── transformer.py          # Model, data pipeline, training loop, and generation
-├── requirements.txt        # Python dependency list
+├── transformer.py          # Transformer, data pipeline, training, generation
+├── transformers.ipynb      # Step-by-step language-model learning notebook
+├── bigram.py               # Earlier bigram language-model experiment
+├── requirements.txt        # Python dependencies
 ├── a game of thrones.txt   # Training corpus source
-├── A Clash of Kings.txt    # Training corpus source
-├── bigram.py               # Earlier bigram baseline
-└── transformers.ipynb      # Step-by-step language-model and attention walkthrough
+└── A Clash of Kings.txt    # Training corpus source
 ```
 
-## Notebook Walkthrough
+## Learning Path
 
-`transformers.ipynb` is a companion learning notebook that builds toward the
-Transformer implementation in stages. It uses the same two-book corpus and
-contains the following steps:
+The main implementation lives in `transformer.py`. The companion `transformers.ipynb` builds up the underlying ideas progressively:
 
-1. Character-level tokenization and a 90/10 train/validation split.
-2. Context-window and mini-batch construction examples.
-3. A `LanguageModel` bigram baseline, trained with AdamW for 100 steps.
-4. A single-head causal self-attention demonstration, including the
-   lower-triangular mask that prevents attention to future characters.
-
-The complete 6-layer Transformer training loop and 2,000-character generation
-run described above are implemented in `transformer.py`.
-
-## Run Locally
-
-### Requirements
-
-- Python 3.9 or later
-- PyTorch (listed in `requirements.txt`)
-- A device supported by PyTorch; the script uses Apple Metal Performance Shaders (`mps`) when available and otherwise falls back to CPU
-
-Create and activate a virtual environment, then install the project dependencies:
-
-```bash
-python -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
-```
-
-On Windows PowerShell, activate the environment with:
-
-```powershell
-.venv\Scripts\Activate.ps1
-```
-
-Then train and generate text:
-
-```bash
-python transformer.py
-```
-
-The script will:
-
-1. Load and combine the two novels.
-2. Build a character vocabulary and train/validation split.
-3. Train the Transformer for 5,000 iterations.
-4. Print train and validation loss every 500 steps.
-5. Generate and print 2,000 new characters.
+1. Character tokenization and train/validation splits
+2. Context windows and mini-batch construction
+3. A bigram language-model baseline
+4. Single-head causal self-attention and masking
 
 ## Notes
 
-- This project is educational and intentionally keeps the model, optimizer, data loading, and generation loop visible in one file.
-- The model name in the code remains `BigramLanguageModel` from an earlier iteration, but the implemented network is a multi-layer Transformer language model.
-- Generated text is a statistical continuation of patterns learned from the training corpus; it is not a faithful quote, summary, or continuation of either novel.
+- This repository favors clarity over production abstractions: the model, data loading, training loop, and generation logic are intentionally visible.
+- Generated passages are statistical continuations of patterns in the training text. They are not quotes, summaries, or canonical continuations of the source novels.
+- The included novels remain subject to their respective copyright terms. Use the repository for personal learning and experimentation.
