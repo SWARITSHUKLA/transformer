@@ -87,6 +87,8 @@ At each step, the script samples 64 random contiguous 512-character windows from
 
 ## Training Results
 
+![Training results](https://github.com/user-attachments/assets/4d07650d-0af8-449d-b6f5-9af6034bfffc)
+
 Loss was evaluated at the beginning of training and every 500 iterations thereafter. Both training and validation loss steadily decreased, with a small final gap between them.
 
 | Step | Train loss | Validation loss |
