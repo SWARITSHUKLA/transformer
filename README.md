@@ -141,8 +141,24 @@ The text is not semantically reliable, but it captures useful stylistic signals:
 ├── requirements.txt        # Python dependency list
 ├── a game of thrones.txt   # Training corpus source
 ├── A Clash of Kings.txt    # Training corpus source
-└── bigram.py               # Earlier bigram baseline
+├── bigram.py               # Earlier bigram baseline
+└── transformers.ipynb      # Step-by-step language-model and attention walkthrough
 ```
+
+## Notebook Walkthrough
+
+`transformers.ipynb` is a companion learning notebook that builds toward the
+Transformer implementation in stages. It uses the same two-book corpus and
+contains the following steps:
+
+1. Character-level tokenization and a 90/10 train/validation split.
+2. Context-window and mini-batch construction examples.
+3. A `LanguageModel` bigram baseline, trained with AdamW for 100 steps.
+4. A single-head causal self-attention demonstration, including the
+   lower-triangular mask that prevents attention to future characters.
+
+The complete 6-layer Transformer training loop and 2,000-character generation
+run described above are implemented in `transformer.py`.
 
 ## Run Locally
 
